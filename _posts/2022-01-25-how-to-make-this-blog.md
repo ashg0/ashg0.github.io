@@ -22,5 +22,7 @@ _config.ymlにtitleとか入れた。
 
 このページを作った。`YEAR-MONTH-DAY-title.MARKUP`の形式で_post配下に置けばOK
 
+themaをorverrideするには_inlucde,_layout,_sassを作る。試しに_sassつくってheaderの色を変更
+
 [jekyll-Quickstart]: https://jekyllrb.com/docs/
 [jekyll-gh]:   https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/creating-a-github-pages-site-with-jekyll
