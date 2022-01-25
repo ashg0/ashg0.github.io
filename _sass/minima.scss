@@ -26,6 +26,14 @@ $content-width:    800px !default;
 $on-palm:          600px !default;
 $on-laptop:        800px !default;
 
+// Change header dark
+$header-brand-color:           #999999 !default;
+$header-brand-color-light:     lighten($header-brand-color, 5%) !default;
+$header-brand-color-dark:      darken($header-brand-color, 35%) !default;
+$header-site-title-color:      $header-brand-color-light !default;
+$header-text-color:            #bbbbbb !default;
+$header-background-color:      #181818 !default;
+
 // Use media queries like this:
 // @include media-query($on-palm) {
 //   .wrapper {
