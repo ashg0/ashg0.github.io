@@ -35,7 +35,8 @@ curl: (28) Operation timed out after 30001 milliseconds with 0 out of 0 bytes re
 タイムアウトしてしまいました。
 
 - **問題**
-`curl https://internetserver.netcon`が成功するようにしてください。
+
+  `curl https://internetserver.netcon`が成功するようにしてください。
 - 期待する結果
 ```
 janog49@Client:~$ curl https://internetserver.netcon
@@ -43,9 +44,10 @@ Succeeded!
 ```
 
 - **制限事項**
-InternetServerとProviderDNSの設定は変更してはいけない
 
-InternetRouterとProviderRouterにはログインできない
+  InternetServerとProviderDNSの設定は変更してはいけない
+
+  InternetRouterとProviderRouterにはログインできない
 
 # **構成**
 ![arch](https://ashg0.github.io/assets/images/20220127_janog49netcon.PNG)
@@ -53,9 +55,9 @@ InternetRouterとProviderRouterにはログインできない
 # **解説**
 この問題はPath MTU black holeとTCP MSS Clampingを題材にしています。
 
-作問の発端としては、自宅NWでフレッツ回線にLinux刺してルーティングしていた時に、同じように嵌ったことです。
+作問の発端は、自宅NWでフレッツ回線にLinux刺してルーティングしていた時に、同じように嵌ったことです。
 
-### **切り分け**
+**切り分け**
 port 80へのcurlは通っているのでL3の疎通はあると考えられます。
 
 port 443がタイムアウトするため、ACL等の設定が予想されますが、HomeRouterからのcurlは通ることから否定されます。
@@ -108,7 +110,6 @@ PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。そのためpp
 これを上回るサイズのパケット(DFフラグがセット)は破棄され、 ICMP Type:3 / Code:4(too big)が返されます。
 
 通常、too bigを受け取った場合は、Server側でpacketサイズを下げて再送することで、到達不能を回避します。(Path MTU Discovery)しかし、この問題環境では何故かtoo bigがServer側に返らないようになっているため、Black holeが発生していました。
-
 ※InternteRouterでProviderRouterからのICMPをDropしていました。本文末show runのaccess-list参照
 
 本問題では、TLSのhandshakeでサーバ証明書を送る際にmtuを超過してしまい、破棄されています。
@@ -117,10 +118,10 @@ TCPでは3WayHandshakeの際に使用するMSSサイズを交換し、小さい�
 
 - 所感
 
-Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。Server側のログも見ることができないですし…
+  Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。Server側のログも見ることができないですし…
 
 
-### **解答例**
+**解答例**
 - HomeRouter(VyOS)でtcp mss clamping
 
  `set firewall options interface pppoe0 adjust-mss '1452'`など
@@ -133,12 +134,12 @@ Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter�
 
 また、dhcpのoptionでmtuも配布できるらしいです。(windows10では設定できないようですが)
 
-### **採点方法**
+**採点方法**
 この問題では自動採点を実施していました。
 
 回答者の問題環境にログインし、Clinetからcurlを実行して期待する出力が得られるかテストするプログラムを実行しました。
 
-単純にClientからのcurl確認だけだと、Clientの/etc/hostsに`127.0.0.1 localhost internetserver.netcon`を記載してローカルにWeb server立てるなどの不正が可能かと思ったので、InternetServer側のログも確認しました。
+単純にClientからのcurl確認のみだと、Clientの/etc/hostsに`127.0.0.1 localhost internetserver.netcon`を記載してローカルにWeb server立てる等の不正が可能なため、InternetServer側のログも確認しました。
 - 実際の採点ログ ※`H1A9K0G4`はランダム文字列を都度生成
 ```
   "Client: curl -A \"H1A9K0G4\" -m 5 https://internetserver.netcon": "Succeeded!",
@@ -146,11 +147,11 @@ Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter�
 ```
 - 採点基準
 
- Succeeded!が返ってきていたら50%
+Succeeded!が返ってきていたら50%
 
- wc -l が 1の場合は100%
+wc -l が 1の場合は100%
 
-### **その他**
+**その他**
 serverの証明のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byteくらいのパケットになったので、問題環境では`rsa:4096`で作成しました。
 
 DNSが構成内に存在していますが、問題内容とは無関係になっていました。切り分けポイントを増やしたい意図で配置しました。
