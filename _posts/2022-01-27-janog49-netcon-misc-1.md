@@ -181,6 +181,7 @@ update-ca-trust
 ```
 
 - nginx.conf
+
 ```
 user nginx;
 worker_processes auto;
@@ -231,6 +232,7 @@ http {
         }
     }
 }
+
 ```
 
 - ProviderDNS
@@ -247,6 +249,7 @@ systemctl disable firewalld
 ```
 
 - InternetRouter
+
 ```
 !
 ! Last configuration change at 02:14:10 UTC Sun Jan 16 2022
@@ -387,7 +390,9 @@ no scheduler allocate
 !
 end
 ```
+
 - ProviderRouter
+
 ```
 !
 ! Last configuration change at 15:17:29 UTC Sat Jan 15 2022
