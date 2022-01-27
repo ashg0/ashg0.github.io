@@ -4,13 +4,18 @@ title:  "JANOG49 NETCON問題解説"
 date:   2022-01-27 17:00:00
 ---
 JANOG49 NETCONで問題作成をしました。
+
 カテゴリ：MISC(その他)
+
 問題：MISC-1
+
 配点：30点
 
 # **問題文**
 友人に自宅のインターネットが使えないと相談されました。
+
 詳しく話を聞くと、一部のサイトにアクセスできないようです。
+
 ひとまずClientからInternetServerに対してcurlしてみます。
 ```
 janog49@Client:~$ curl internetserver.netcon
@@ -29,17 +34,18 @@ curl: (28) Operation timed out after 30001 milliseconds with 0 out of 0 bytes re
 ```
 タイムアウトしてしまいました。
 
-**問題**
-
+- **問題**
 `curl https://internetserver.netcon`が成功するようにしてください。
 - 期待する結果
 ```
 janog49@Client:~$ curl https://internetserver.netcon
 Succeeded!
 ```
-**制限事項**
-- InternetServerとProviderDNSの設定は変更してはいけない
-- InternetRouterとProviderRouterにはログインできない
+
+- **制限事項**
+InternetServerとProviderDNSの設定は変更してはいけない
+
+InternetRouterとProviderRouterにはログインできない
 
 # **構成**
 ![arch](https://ashg0.github.io/assets/images/20220127_janog49netcon.PNG)
@@ -87,6 +93,7 @@ InternetServer側でtcpdumpを取り、ClientとHomeRouterのリクエストを�
 14:55:40.201124 IP InternetServer.https > 172.16.0.2.47162: Flags [S.], seq 3987956370, ack 2988814696, win 28960, options [mss 1460,sackOK,TS val 13836376 ecr2507845421,nop,wscale 7], length 0
 14:55:40.206723 IP 172.16.0.2.47162 > InternetServer.https: Flags [.], ack 1, win 1021, options [nop,nop,TS val 2507845426 ecr 13836376], length 0
 ```
+
 Synパケットを比較すると、HomeRouterではmss 1452, Clientではmss 1460 となっています。これが原因のようです。
 
 HomeRouterの設定を確認すると、ProviderへはPPPoEで接続されています。
@@ -96,35 +103,26 @@ set interfaces pppoe pppoe0 authentication user 'janog49'
 set interfaces pppoe pppoe0 default-route 'auto'
 set interfaces pppoe pppoe0 source-interface 'eth0'
 ```
-PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。
-
-そのためpppoeインターフェスのmtuは1500 - 8 = 1492byteとなります。
+PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。そのためpppoeインターフェスのmtuは1500 - 8 = 1492byteとなります。
 
 これを上回るサイズのパケット(DFフラグがセット)は破棄され、 ICMP Type:3 / Code:4(too big)が返されます。
 
-通常、too bigを受け取った場合は、Server側でpacketサイズを下げて再送することで、到達不能を回避します。(Path MTU Discovery)
-
-しかし、この問題環境では何故かtoo bigがServer側に返らないようになっているため、Black holeが発生していました。
+通常、too bigを受け取った場合は、Server側でpacketサイズを下げて再送することで、到達不能を回避します。(Path MTU Discovery)しかし、この問題環境では何故かtoo bigがServer側に返らないようになっているため、Black holeが発生していました。
 
 ※InternteRouterでProviderRouterからのICMPをDropしていました。本文末show runのaccess-list参照
 
 本問題では、TLSのhandshakeでサーバ証明書を送る際にmtuを超過してしまい、破棄されています。
 
-
-TCPでは3WayHandshakeの際に使用するMSSサイズを交換し、小さい方を採用します。
-
-TCPヘッダのMSSサイズはエンドポイントのほかに、経路上でも変更することが可能です。（TCP MSS Clamping）
-
-本問題ではこれをHomeRouterで実施することを回答として想定しています。
+TCPでは3WayHandshakeの際に使用するMSSサイズを交換し、小さい方を採用します。TCPヘッダのMSSサイズはエンドポイントのほかに、経路上でも変更することが可能です。（TCP MSS Clamping）本問題ではこれをHomeRouterで実施することを回答として想定しています。
 
 - 所感
-Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。
 
-自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。Server側のログも見ることができないですし…
+Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。Server側のログも見ることができないですし…
 
 
 ### **解答例**
 - HomeRouter(VyOS)でtcp mss clamping
+
  `set firewall options interface pppoe0 adjust-mss '1452'`など
 
 Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter配下LAN内の全てのノードで設定必要になります。
@@ -147,12 +145,14 @@ Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter�
   "Server: grep H1A9K0G4 /var/log/nginx/access.log | wc -l": "1"
 ```
 - 採点基準
+
  Succeeded!が返ってきていたら50%
 
  wc -l が 1の場合は100%
 
 ### **その他**
 serverの証明のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byteくらいのパケットになったので、問題環境では`rsa:4096`で作成しました。
+
 DNSが構成内に存在していますが、問題内容とは無関係になっていました。切り分けポイントを増やしたい意図で配置しました。
 
 
