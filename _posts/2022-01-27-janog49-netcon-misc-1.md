@@ -165,9 +165,7 @@ DNSが構成内に存在していますが、問題内容とは無関係にな�
 
 
 ### **環境設定**
-<details>
-  <summary>InternetServer</summary>
-
+- InternetServer
 ```
 echo InternetServer > /etc/hostname
 yum install -y nginx
@@ -181,11 +179,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:4096 -keyout /etc/ssl/certs/nginx
 cp /etc/ssl/certs/nginx_server.crt /etc/pki/ca-trust/source/anchors
 update-ca-trust
 ```
-</details>
-
-<details>
-  <summary>nginx.conf</summary>
-
+- nginx.conf
 ```
 user nginx;
 worker_processes auto;
@@ -237,11 +231,7 @@ http {
     }
 }
 ```
-</details>
-
-<details>
-  <summary>ProviderDNS</summary>
-
+- ProviderDNS
 ```
 echo ProviderDNS > /etc/hostname
 nmcli c mod eth0 ipv4.addresses "172.16.2.100/24"
@@ -253,11 +243,7 @@ echo '10.0.0.100 internetserver.netcon' >> /etc/hosts
 echo local=/netcon/ > /etc/dnsmasq.conf
 systemctl disable firewalld
 ```
-</details>
-
-<details>
-  <summary>InternetRouter</summary>
-
+- InternetRouter
 ```
 !
 ! Last configuration change at 02:14:10 UTC Sun Jan 16 2022
@@ -398,11 +384,7 @@ no scheduler allocate
 !
 end
 ```
-</details>
-
-<details>
-  <summary>ProviderRouter</summary>
-
+- ProviderRouter
 ```
 !
 ! Last configuration change at 15:17:29 UTC Sat Jan 15 2022
@@ -557,11 +539,7 @@ no scheduler allocate
 !
 end
 ```
-</details>
-
-<details>
-  <summary>HomeRouter</summary>
-
+- HomeRouter
 ```
 set system host-name HomeRouter
 set interfaces pppoe pppoe0 default-route 'auto'
@@ -586,15 +564,10 @@ scp janog49@internetserver.netcon:/etc/ssl/certs/nginx_server.crt /etc/ssl/certs
 c_rehash
 scp /etc/ssl/certs/nginx_server.crt janog49@192.168.0.2:
 ```
-</details>
-
-<details>
-  <summary>Client</summary>
-
+- Client
 ```
 echo Client > /etc/hostname
 cp nginx_server.crt /etc/ssl/certs/
 c_rehash
 ```
-</details>
 
