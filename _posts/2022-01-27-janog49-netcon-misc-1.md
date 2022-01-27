@@ -129,11 +129,10 @@ Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouter
 
 **解答例**
 - HomeRouter(VyOS)でtcp mss clamping
-```set firewall options interface pppoe0 adjust-mss '1452'```など
 
-Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter配下LAN内の全てのノードで設定必要になります。
+  `set firewall options interface pppoe0 adjust-mss '1452'`など
 
-(自分の自宅の例だとClientがWindowsで、WSL上でもmtu設定しないといけない…)
+Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter配下LAN内の全てのノードで設定必要になります。(自分の自宅の例だとClientがWindowsで、WSL上でもmtu設定しないといけない…)
 
 採点自体は正答にしました。
 
