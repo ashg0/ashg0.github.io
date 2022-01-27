@@ -28,7 +28,9 @@ janog49@Client:~$ curl --max-time 30 https://internetserver.netcon
 curl: (28) Operation timed out after 30001 milliseconds with 0 out of 0 bytes received
 ```
 タイムアウトしてしまいました。
+
 **問題**
+
 `curl https://internetserver.netcon`が成功するようにしてください。
 - 期待する結果
 ```
