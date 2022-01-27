@@ -37,7 +37,7 @@ curl: (28) Operation timed out after 30001 milliseconds with 0 out of 0 bytes re
 - **問題**
 
   `curl https://internetserver.netcon`が成功するようにしてください。
-- 期待する結果
+- **期待する結果**
 ```
 janog49@Client:~$ curl https://internetserver.netcon
 Succeeded!
@@ -56,6 +56,7 @@ Succeeded!
 この問題はPath MTU black holeとTCP MSS Clampingを題材にしています。
 
 作問の発端は、自宅NWでフレッツ回線にLinux刺してルーティングしていた時に、同じように嵌ったことです。
+
 
 **切り分け**
 
@@ -117,11 +118,13 @@ PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。そのためpp
 
 TCPでは3WayHandshakeの際に使用するMSSサイズを交換し、小さい方を採用します。TCPヘッダのMSSサイズはエンドポイントのほかに、経路上でも変更することが可能です。（TCP MSS Clamping）本問題ではこれをHomeRouterで実施することを回答として想定しています。
 
+
 **所感**
 
 Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。
 
 自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。
+
 
 
 **解答例**
@@ -135,6 +138,7 @@ Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter�
 採点自体は正答にしました。
 
 また、dhcpのoptionでmtuも配布できるらしいです。(windows10では設定できないようですが)
+
 
 **採点方法**
 
@@ -156,7 +160,7 @@ Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter�
 
 **その他**
 
-serverの証明のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byteくらいのパケットになったので、問題環境では`rsa:4096`で作成しました。
+証明書のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byteくらいのパケットになったので、問題環境では`rsa:4096`で作成しました。
 
 DNSが構成内に存在していますが、問題内容とは無関係になっていました。切り分けポイントを増やしたい意図で配置しました。
 
