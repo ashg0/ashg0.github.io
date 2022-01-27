@@ -179,6 +179,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:4096 -keyout /etc/ssl/certs/nginx
 cp /etc/ssl/certs/nginx_server.crt /etc/pki/ca-trust/source/anchors
 update-ca-trust
 ```
+
 - nginx.conf
 ```
 user nginx;
@@ -231,6 +232,7 @@ http {
     }
 }
 ```
+
 - ProviderDNS
 ```
 echo ProviderDNS > /etc/hostname
@@ -243,6 +245,7 @@ echo '10.0.0.100 internetserver.netcon' >> /etc/hosts
 echo local=/netcon/ > /etc/dnsmasq.conf
 systemctl disable firewalld
 ```
+
 - InternetRouter
 ```
 !
@@ -539,6 +542,7 @@ no scheduler allocate
 !
 end
 ```
+
 - HomeRouter
 ```
 set system host-name HomeRouter
@@ -564,6 +568,7 @@ scp janog49@internetserver.netcon:/etc/ssl/certs/nginx_server.crt /etc/ssl/certs
 c_rehash
 scp /etc/ssl/certs/nginx_server.crt janog49@192.168.0.2:
 ```
+
 - Client
 ```
 echo Client > /etc/hostname
