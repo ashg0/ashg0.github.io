@@ -47,6 +47,7 @@ InternetRouterとProviderRouterにはログインできない
 ### 環境構築の設定
 <details>
   <summary>InternetServer</summary>
+
 ```
 echo InternetServer > /etc/hostname
 yum install -y nginx
@@ -61,3 +62,4 @@ cp /etc/ssl/certs/nginx_server.crt /etc/pki/ca-trust/source/anchors
 update-ca-trust
 ```
 </details>
+
