@@ -44,6 +44,116 @@ Succeeded!
 # **構成**
 ![arch](https://ashg0.github.io/assets/images/20220127_janog49netcon.PNG)
 
+# **解説**
+この問題はPath MTU black holeとTCP MSS Clampingを題材にしています。
+
+作問の発端としては、自宅NWでフレッツ回線にLinux刺してルーティングしていた時に、同じように嵌ったことです。
+
+### **切り分け**
+port 80へのcurlは通っているのでL3の疎通はあると考えられます。
+
+port 443がタイムアウトするため、ACL等の設定が予想されますが、HomeRouterからのcurlは通ることから否定されます。
+```
+janog49@HomeRouter:~$ curl https://internetserver.netcon
+Succeeded!
+```
+Clientからのcurlを詳しく見てみます。
+```
+janog49@Client:~$ curl -v https://internetserver.netcon
+*   Trying 10.0.0.100:443...
+* TCP_NODELAY set
+* Connected to internetserver.netcon (10.0.0.100) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*   CAfile: /etc/ssl/certs/ca-certificates.crt
+  CApath: /etc/ssl/certs
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+^C
+janog49@Client:~$
+```
+Client helloの後、Server helloが返ってきていないことがわかります。戻りのどこかでパケットが破棄されているようです。
+
+InternetServer側でtcpdumpを取り、ClientとHomeRouterのリクエストを比較してみます。
+- Client
+```
+14:55:21.933009 IP 172.16.0.2.38524 > InternetServer.https: Flags [S], seq 2562719857, win 64240, options [mss 1460,sackOK,TS val 850820184 ecr 0,nop,wscale 7],length 0
+14:55:21.933338 IP InternetServer.https > 172.16.0.2.38524: Flags [S.], seq 1536893779, ack 2562719858, win 28960, options [mss 1460,sackOK,TS val 13818108 ecr850820184,nop,wscale 7], length 0
+14:55:21.939751 IP 172.16.0.2.38524 > InternetServer.https: Flags [.], ack 1, win 502, options [nop,nop,TS val 850820191 ecr 13818108], length 0
+```
+- HomeRouter
+```
+14:55:40.200944 IP 172.16.0.2.47162 > InternetServer.https: Flags [S], seq 298814695, win 65340, options [mss 1452,sackOK,TS val 2507845421 ecr 0,nop,wscale 6], length 0
+14:55:40.201124 IP InternetServer.https > 172.16.0.2.47162: Flags [S.], seq 3987956370, ack 2988814696, win 28960, options [mss 1460,sackOK,TS val 13836376 ecr2507845421,nop,wscale 7], length 0
+14:55:40.206723 IP 172.16.0.2.47162 > InternetServer.https: Flags [.], ack 1, win 1021, options [nop,nop,TS val 2507845426 ecr 13836376], length 0
+```
+Synパケットを比較すると、HomeRouterではmss 1452, Clientではmss 1460 となっています。これが原因のようです。
+
+HomeRouterの設定を確認すると、ProviderへはPPPoEで接続されています。
+```
+set interfaces pppoe pppoe0 authentication password 'netcon49'
+set interfaces pppoe pppoe0 authentication user 'janog49'
+set interfaces pppoe pppoe0 default-route 'auto'
+set interfaces pppoe pppoe0 source-interface 'eth0'
+```
+PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。
+
+そのためpppoeインターフェスのmtuは1500 - 8 = 1492byteとなります。
+
+これを上回るサイズのパケット(DFフラグがセット)は破棄され、 ICMP Type:3 / Code:4(too big)が返されます。
+
+通常、too bigを受け取った場合は、Server側でpacketサイズを下げて再送することで、到達不能を回避します。(Path MTU Discovery)
+
+しかし、この問題環境では何故かtoo bigがServer側に返らないようになっているため、Black holeが発生していました。
+
+※InternteRouterでProviderRouterからのICMPをDropしていました。本文末show runのaccess-list参照
+
+本問題では、TLSのhandshakeでサーバ証明書を送る際にmtuを超過してしまい、破棄されています。
+
+
+TCPでは3WayHandshakeの際に使用するMSSサイズを交換し、小さい方を採用します。
+
+TCPヘッダのMSSサイズはエンドポイントのほかに、経路上でも変更することが可能です。（TCP MSS Clamping）
+
+本問題ではこれをHomeRouterで実施することを回答として想定しています。
+
+- 所感
+Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。
+
+自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。Server側のログも見ることができないですし…
+
+
+### **解答例**
+- HomeRouter(VyOS)でtcp mss clamping
+ `set firewall options interface pppoe0 adjust-mss '1452'`など
+
+Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter配下LAN内の全てのノードで設定必要になります。
+
+(自分の自宅の例だとClientがWindowsで、WSL上でもmtu設定しないといけない…)
+
+採点自体は正答にしました。
+
+また、dhcpのoptionでmtuも配布できるらしいです。(windows10では設定できないようですが)
+
+### **採点方法**
+この問題では自動採点を実施していました。
+
+回答者の問題環境にログインし、Clinetからcurlを実行して期待する出力が得られるかテストするプログラムを実行しました。
+
+単純にClientからのcurl確認だけだと、Clientの/etc/hostsに`127.0.0.1 localhost internetserver.netcon`を記載してローカルにWeb server立てるなどの不正が可能かと思ったので、InternetServer側のログも確認しました。
+- 実際の採点ログ ※`H1A9K0G4`はランダム文字列を都度生成
+```
+  "Client: curl -A \"H1A9K0G4\" -m 5 https://internetserver.netcon": "Succeeded!",
+  "Server: grep H1A9K0G4 /var/log/nginx/access.log | wc -l": "1"
+```
+- 採点基準
+ Succeeded!が返ってきていたら50%
+
+ wc -l が 1の場合は100%
+
+### **その他**
+serverの証明のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byteくらいのパケットになったので、問題環境では`rsa:4096`で作成しました。
+DNSが構成内に存在していますが、問題内容とは無関係になっていました。切り分けポイントを増やしたい意図で配置しました。
 
 
 ### **環境設定**
