@@ -3,20 +3,16 @@ layout: post
 title:  "JANOG49 NETCON問題解説"
 date:   2022-01-27 17:00:00
 ---
-JANOG49 NETCONで問題作成をしました。
-
-カテゴリ：MISC(その他)
-
-問題：MISC-1
-
+JANOG49 NETCONで問題作成をしました。\\
+カテゴリ：MISC(その他)\\
+問題：MISC-1\\
 配点：30点
 
 # **問題文**
-友人に自宅のインターネットが使えないと相談されました。
-
-詳しく話を聞くと、一部のサイトにアクセスできないようです。
-
+友人に自宅のインターネットが使えないと相談されました。\\
+詳しく話を聞くと、一部のサイトにアクセスできないようです。\\
 ひとまずClientからInternetServerに対してcurlしてみます。
+
 ```
 janog49@Client:~$ curl internetserver.netcon
 <html>
@@ -27,41 +23,35 @@ janog49@Client:~$ curl internetserver.netcon
 </body>
 </html>
 ```
-リダイレクトされました。では、`https://internetserver.netcon` はどうでしょうか？
+リダイレクトされました。\\
+では、`https://internetserver.netcon` はどうでしょうか？
 ```
 janog49@Client:~$ curl --max-time 30 https://internetserver.netcon
 curl: (28) Operation timed out after 30001 milliseconds with 0 out of 0 bytes received
 ```
 タイムアウトしてしまいました。
 
-- **問題**
-
-  `curl https://internetserver.netcon`が成功するようにしてください。
+- **問題**\\
+`curl https://internetserver.netcon`が成功するようにしてください。
 - **期待する結果**
 ```
 janog49@Client:~$ curl https://internetserver.netcon
 Succeeded!
 ```
 
-- **制限事項**
-
-  InternetServerとProviderDNSの設定は変更してはいけない
-
-  InternetRouterとProviderRouterにはログインできない
+- **制限事項**\\
+InternetServerとProviderDNSの設定は変更してはいけない\\
+InternetRouterとProviderRouterにはログインできない
 
 # **構成**
 ![arch](https://ashg0.github.io/assets/images/20220127_janog49netcon.PNG)
 
 # **解説**
-この問題はPath MTU black holeとTCP MSS Clampingを題材にしています。
-
+この問題はPath MTU black holeとTCP MSS Clampingを題材にしています。\\
 作問の発端は、自宅NWでフレッツ回線にLinux刺してルーティングしていた時に、同じように嵌ったことです。
 
-
-**切り分け**
-
-port 80へのcurlは通っているのでL3の疎通はあると考えられます。
-
+**切り分け**\\
+port 80へのcurlは通っているのでL3の疎通はあると考えられます。\\
 port 443がタイムアウトするため、ACL等の設定が予想されますが、HomeRouterからのcurlは通ることから否定されます。
 ```
 janog49@HomeRouter:~$ curl https://internetserver.netcon
@@ -82,8 +72,7 @@ janog49@Client:~$ curl -v https://internetserver.netcon
 ^C
 janog49@Client:~$
 ```
-Client helloの後、Server helloが返ってきていないことがわかります。戻りのどこかでパケットが破棄されているようです。
-
+Client helloの後、Server helloが返ってきていないことがわかります。戻りのどこかでパケットが破棄されているようです。\\
 InternetServer側でtcpdumpを取り、ClientとHomeRouterのリクエストを比較してみます。
 - Client
 ```
@@ -98,8 +87,7 @@ InternetServer側でtcpdumpを取り、ClientとHomeRouterのリクエストを�
 14:55:40.206723 IP 172.16.0.2.47162 > InternetServer.https: Flags [.], ack 1, win 1021, options [nop,nop,TS val 2507845426 ecr 13836376], length 0
 ```
 
-Synパケットを比較すると、HomeRouterではmss 1452, Clientではmss 1460 となっています。これが原因のようです。
-
+Synパケットを比較すると、HomeRouterではmss 1452, Clientではmss 1460 となっています。これが原因のようです。\\
 HomeRouterの設定を確認すると、ProviderへはPPPoEで接続されています。
 ```
 set interfaces pppoe pppoe0 authentication password 'netcon49'
@@ -107,62 +95,41 @@ set interfaces pppoe pppoe0 authentication user 'janog49'
 set interfaces pppoe pppoe0 default-route 'auto'
 set interfaces pppoe pppoe0 source-interface 'eth0'
 ```
-PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。そのためpppoeインターフェスのmtuは1500 - 8 = 1492byteとなります。
+PPPoEではPPPoEヘッダ、PPPヘッダに8byteが必要です。そのためpppoeインターフェスのmtuは1500 - 8 = 1492byteとなります。これを上回るサイズのパケット(DFフラグがセット)は破棄され、 ICMP Type:3 / Code:4(too big)が返されます。
 
-これを上回るサイズのパケット(DFフラグがセット)は破棄され、 ICMP Type:3 / Code:4(too big)が返されます。
+通常、too bigを受け取った場合は、Server側でpacketサイズを下げて再送することで、到達不能を回避します。(Path MTU Discovery)しかし、この問題環境では何故かtoo bigがServer側に返らないようになっているため、Black holeが発生していました。※InternteRouterでProviderRouterからのICMPをDropしていました。本文末show runのaccess-list参照
 
-通常、too bigを受け取った場合は、Server側でpacketサイズを下げて再送することで、到達不能を回避します。(Path MTU Discovery)しかし、この問題環境では何故かtoo bigがServer側に返らないようになっているため、Black holeが発生していました。
-※InternteRouterでProviderRouterからのICMPをDropしていました。本文末show runのaccess-list参照
-
-本問題では、TLSのhandshakeでサーバ証明書を送る際にmtuを超過してしまい、破棄されています。
-
+本問題では、TLSのhandshakeでサーバ証明書を送る際にmtuを超過してしまい、破棄されています。\\
 TCPでは3WayHandshakeの際に使用するMSSサイズを交換し、小さい方を採用します。TCPヘッダのMSSサイズはエンドポイントのほかに、経路上でも変更することが可能です。（TCP MSS Clamping）本問題ではこれをHomeRouterで実施することを回答として想定しています。
 
-
-**所感**
-
-Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。
-
+**所感**\\
+Client,Serverでの切り分けをしてみましたが、PPPoEでProviderRouterに接続されている構成を見た時点で、mtuの問題と予想がついた方もおられるかと思います。\\
 自分が自宅で切り分けた際は、mtuの観点が無かったので嵌りました。
 
-
-
 **解答例**
-- HomeRouter(VyOS)でtcp mss clamping
+- HomeRouter(VyOS)でtcp mss clamping\\
+`set firewall options interface pppoe0 adjust-mss '1452'`など
 
-  `set firewall options interface pppoe0 adjust-mss '1452'`など
-
-Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter配下LAN内の全てのノードで設定必要になります。(自分の自宅の例だとClientがWindowsで、WSL上でもmtu設定しないといけない…)
-
-採点自体は正答にしました。
-
+Client側でIFのmtuを下げることでもcurlは通りますが、HomeRouter配下LAN内の全てのノードで設定必要になります。(自分の自宅の例だとClientがWindowsで、WSL上でもmtu設定しないといけない…)\\
+採点自体は正答にしました。\\
 また、dhcpのoptionでmtuも配布できるらしいです。(windows10では設定できないようですが)
 
-
-**採点方法**
-
-この問題では自動採点を実施していました。
-
-回答者の問題環境にログインし、Clinetからcurlを実行して期待する出力が得られるかテストするプログラムを実行しました。
-
+**採点方法**\\
+この問題では自動採点を実施していました。\\
+回答者の問題環境にログインし、Clinetからcurlを実行して期待する出力が得られるかテストするプログラムを実行しました。\\
 単純にClientからのcurl確認のみだと、Clientの/etc/hostsに`127.0.0.1 localhost internetserver.netcon`を記載してローカルにWeb server立てる等の不正が可能なため、InternetServer側のログも確認しました。
 - 実際の採点ログ ※`H1A9K0G4`はランダム文字列を都度生成
 ```
   "Client: curl -A \"H1A9K0G4\" -m 5 https://internetserver.netcon": "Succeeded!",
   "Server: grep H1A9K0G4 /var/log/nginx/access.log | wc -l": "1"
 ```
-- 採点基準
+- 採点基準\\
+Succeeded!が返ってきていたら50%\\
+wc -l が 1の場合は100%
 
-  Succeeded!が返ってきていたら50%
-
-  wc -l が 1の場合は100%
-
-**その他**
-
-証明書のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byteくらいのパケットになったので、問題環境では`rsa:4096`で作成しました。
-
+**その他**\\
+証明書のサイズが小さいとTLSのハンドシェイクは通ります。`openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt`だと1300byte程のパケットになったので、問題環境では`rsa:4096`で作成しました。\\
 DNSが構成内に存在していますが、問題内容とは無関係になっていました。切り分けポイントを増やしたい意図で配置しました。
-
 
 ### **環境設定**
 {::nomarkdown}
