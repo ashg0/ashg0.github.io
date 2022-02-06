@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "ブログ作った"
-date:   2022-01-25 09:53:46 +0900
+date:   2022-01-25 09:53:46
 categories: jekyll update
 ---
 Gihub pagesのデフォルトでjekyll使っているだけだけど、忘れるので一応メモ。
