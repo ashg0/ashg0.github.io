@@ -218,5 +218,156 @@ pthread_mutex_lockを呼ぶことで、1つのスレッドだけがmutex(と言�
 単純なThreadと比較すると40%性能向上がみられるが、Preforkと比較すると同程度となる。これはLinuxにおいてプロセスとスレッドは同じようにスケジュールされるので、オーバーヘッドが大差ないということらしい。差分があるのはスレッド/プロセスの新規作成時となる。ConcurrencyにおいてはPrethredに分があり、元記事の条件だとPreforkは5000concurentまで性能を維持したのに対し、Prethredは11000concurentまで維持できた。
 
 #### **6. Poll**
-ここからが本題  
-後で書く
+これまでの並行処理はプロセス/スレッドのスケジュールにオーバーヘッドがある。そこで1つのプロセス/スレッドで処理したらよいというアイデアをpoll(),epoll_wait()で実現する。
+poll()にソケットがファイルディスクリプタを渡すとI/O Readyになったことが判定できる。このときread/writeはブロックされない。
+
+socketはnon-blockingに設定する。
+```
+sock = socket(ai->ai_family, ai->ai_socktype|SOCK_NONBLOCK, ai->ai_protocol);
+```
+- [ノンブロッキングソケット](https://www.geekpage.jp/programming/linux-network/nonblocking.php)
+
+listenしたファイルディスクリプタをadd_to_poll_fd_listでpollfd構造体に追加
+```
+    server_fd = listen_socket(port);
+    if (!debug_mode) {
+        openlog(SERVER_NAME, LOG_PID|LOG_NDELAY, LOG_DAEMON);
+        become_daemon();
+    }
+    add_to_poll_fd_list(server_fd, POLLIN);
+    server_main(server_fd, docroot);
+```
+```
+struct pollfd poll_fds[POLL_FDS_SZ];
+nfds_t poll_nfds;
+```
+```
+void add_to_poll_fd_list(int fd, short int events) {
+    poll_fds[poll_nfds].fd = fd;
+    poll_fds[poll_nfds].events = events;
+    poll_nfds++;
+}
+```
+server_mainではpollのloopを実行する。  
+pollfdsに追加したserver_fdがreadableの間はacceptを繰り返し、pollfdsに追加する。pollは渡されたfdが一つでもI/O可能な場合returnする。  
+server_fdがreadableの場合、acceptを呼ぶ。accept<0の場合は新たなコネクションはないのでbreakする。（socketがnon-blockingのためacceptでブロックされない）  
+readableなpollfdsの内、server_fd以外はelseで処理するfile streamを開いてservice()を呼ぶことで、clientにレスポンスを返す。（pollでread可能であることは保証されるが、その後のwriteも可能であるかはわからないはず。本当はwriteもpollすべきなんだろうけど簡単のため省略）  
+[こちら](https://www.ibm.com/docs/en/i/7.1?topic=designs-using-poll-instead-select)を参考に実装した。  
+```
+static void
+server_main(int server_fd, char *docroot)
+{
+    int poll_ret;
+    int sock;
+    struct sockaddr_storage addr;
+    socklen_t addrlen = sizeof addr;
+
+    for (;;) {
+        poll_ret = poll(poll_fds, poll_nfds, -1);
+        if (poll_ret < 0)
+            log_exit("poll() failed");
+
+        for (int i = 0; i < poll_nfds; i++) {
+
+            if (poll_fds[i].revents == 0)
+                continue;
+
+            if (poll_fds[i].fd == server_fd) {
+                printf("server_fd readable: %d\n", server_fd);
+                for (;;) {
+                    sock = accept(server_fd, (struct sockaddr*)&addr, &addrlen);
+                    if (sock < 0) {
+                        if (errno != EWOULDBLOCK) {
+                            log_exit("accept() failed");
+                        }
+                        //all connection received
+                        break;
+                    }
+                    printf("accept client sock: %d\n", sock);
+                    add_to_poll_fd_list(sock, POLLIN);
+                }
+            } else {
+                printf("sock readable: %d\n", poll_fds[i].fd);
+                FILE *inf = fdopen(poll_fds[i].fd, "r");
+                FILE *outf = fdopen(poll_fds[i].fd, "w");
+                service(inf, outf, docroot);
+                remove_from_poll_fd_list(poll_fds[i].fd);
+                close(sock);
+            }
+        }
+    printf("poll_nfds: %d\n", poll_nfds);
+    }
+}
+```
+元記事の表ではパフォーマンスはprefork,prethreadに劣っているように見えるが、pollはシングルプロセスでより多くの並行処理が可能となっている。  
+pollのボトルネックとしては、関数呼び出しのたびにpollfdsがkernel spaceにコピーされることと、pollfdsのどのファイルディスクリプタがI/O可能になったのか、要素をすべてイテレートして確認しなければならないことである。つまり、fd数に対して線形に処理が増えるので、並行したコネクションが増えるほど時間がかかる。
+
+#### **7. Epoll**
+epollもイベントベースのアーキテクチャであり、pollと基本的には変わらない。pollで問題となったpollfdsの肥大化に対応する。  
+
+epoll_fdとevents配列を定義
+```
+int epoll_fd;
+#define MAX_EVENTS 32000
+struct epoll_event events[MAX_EVENTS];
+```
+server_mainの前にepoll_create1でepoll_fdを作成する。  
+server_fdはadd_to_epoll_fd_listに追加する。
+```
+    server_fd = listen_socket(port);
+    if (!debug_mode) {
+        openlog(SERVER_NAME, LOG_PID|LOG_NDELAY, LOG_DAEMON);
+        become_daemon();
+    }
+    epoll_fd = epoll_create1(0);
+    if (epoll_fd < 0)
+        fatal_error("epoll_create1()");
+    add_to_epoll_fd_list(server_fd, EPOLLIN);
+    server_main(server_fd, docroot);
+```
+add_to_epoll_fd_listではepoll_ctlで渡されたfdをモニター対象に追加している。
+```
+void add_to_epoll_fd_list(int fd, uint32_t ep_events) {
+    struct epoll_event event;
+    event.data.fd = fd;
+    event.events = ep_events;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event))
+        fatal_error("add epoll_ctl()");
+
+}
+```
+server_mainではpoll()の代わりにepoll_wait()を呼ぶ。epoll_wait()は引数のevents配列にI/O可能になったディスクリプタの情報を入れる。return valueはeventsの要素数になる。そのためその後のloopでは全てのディスクリプタが処理可能となり、無駄なloopを減らすことができる。
+```
+static void
+server_main(int server_fd, char *docroot)
+{
+    int epoll_ret;
+    int sock;
+    struct sockaddr_storage addr;
+    socklen_t addrlen = sizeof addr;
+
+    for (;;) {
+        epoll_ret = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+        if (epoll_ret < 0)
+            log_exit("epoll_wait() failed");
+
+        for (int i = 0; i < epoll_ret; i++) {
+
+            if (events[i].events == 0)
+                continue;
+
+            if (events[i].data.fd == server_fd) {
+                //accept()など、pollと処理は変わらないので略
+            } else {
+                //service()など
+            }
+        }
+        printf("epoll_ret: %d\n", epoll_ret);
+    }
+}
+```
+パフォーマンスをprethreadと比較すると、11000concurrentまでは拮抗するが、15000まで増やすとepollの方がパフォーマンスを維持することができる。OSのオーバーヘッドが少ないため、非常に多いconcurrent requestsではepollの方がスケールするとのこと。
+
+#### **その他**
+NginxやIRCではプロセスやスレッドをいくつか作成した後にepollする実装があるらしい。  
+kqueue,io_uringでの実装もできるよ！とのこと
