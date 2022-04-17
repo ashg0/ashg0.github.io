@@ -67,7 +67,7 @@ open@open.ad.jp *       open
 一応systemd-networkd-wait-eth1-online.serviceをAfter,Requireしておいた。
 
 ### [hostapd](https://wiki.archlinux.org/title/software_access_point)
-Raspberry PiからWi-Fi飛ばすための設定。パッケージは`pacman -S hostapd`で入ったはず。
+Raspberry PiからWi-Fi飛ばすための設定。  
 [Configuration](https://wiki.archlinux.org/title/software_access_point#Configuration)見て設定。他にもググれば色々出てきたのでどれかを見て設定した。
 - /etc/hostapd/hostapd.conf
 
@@ -90,7 +90,7 @@ ieee80211n=1
 wmm_enabled=1
 ht_capab=[HT40][SHORT-GI-20][DSSS_CCK-40]
 ```
-項目全部理解してないので、不要な設定が含まれていかもしれない。passphraseはクリアテキストで書かない方法もあるらしい。
+項目全部理解してないので、不要な設定が含まれていかもしれない。passphraseはクリアテキストで書かない方法もあるらしい。  
 `systemctl enable hostapd`で設定完了。
 
 ### [dnsmasq](https://wiki.archlinux.org/title/dnsmasq)
@@ -102,7 +102,7 @@ bind-dynamic
 dhcp-range=interface:wlan1,192.168.0.2,192.168.0.20,12h
 interface=wlan0,eth0
 ```
-rebootしたときに`unknown interface`でdnsmasq起動失敗することがあったが(多分systemdの起動順の問題でインターフェースが上がる前にdnsmasqを上げようとした？)、bind-dynamicを入れたことでインターフェースが準備できたら動的に上がるようになったので解決(多分。)
+rebootしたときに`unknown interface`でdnsmasq起動失敗することがあったが(多分systemdの起動順の問題でインターフェースが上がる前にdnsmasqを上げようとした？)、bind-dynamicを入れたことでインターフェースが準備できたら動的に上がるようになったので解決(多分。)   
 `/etc/systemd/system/dnsmasq.service.d/override.conf`に以下設定入れてもよいかもしれない。
 ```
 [Unit]
@@ -150,8 +150,8 @@ COMMIT
 ```
 TCP、UDPのChainは今のところ使われていない。固定IPでもないのでポート空けることもなさそう。
 
-ip_forwardの設定も忘れず行う。
-[Enable packet forwarding](https://wiki.archlinux.org/title/Internet_sharing#Enable_packet_forwarding)の通り、以下を作ってrebootする。後でv6設定もする予定なのでv6も有効化した(ip6tablesもenableした)
+ip_forwardの設定も忘れず行う。  
+[Enable packet forwarding](https://wiki.archlinux.org/title/Internet_sharing#Enable_packet_forwarding)の通り、以下を作ってrebootする。後でv6設定もする予定なのでv6も有効化した(ip6tablesもenableした)  
 - /etc/sysctl.d/30-ipforward.conf
 
 ```
@@ -159,8 +159,8 @@ net.ipv4.ip_forward=1
 net.ipv6.conf.default.forwarding=1
 net.ipv6.conf.all.forwarding=1
 ```
-当初`-A POSTROUTING -o ppp0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu`を入れていなかったため、一部のサイトに到達できずに嵌った。(NETCONの問題ネタになった。)
-LAN内にmtu設定できればいいのでは？と考えて、DHCPでmtu設定配布してみたが(dnsmasqでoption26)、Windowsは設定受け取らないらしい(？)し、WSLなどで更にNW挟むと結局問題は残る。
+当初`-A POSTROUTING -o ppp0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu`を入れていなかったため、一部のサイトに到達できずに嵌った。(NETCONの問題ネタになった。)  
+LAN内にmtu設定できればいいのでは？と考えて、DHCPでmtu設定配布してみたが(dnsmasqでoption26)、Windowsは設定受け取らないらしい(？)し、WSLなどで更にNW挟むと結局問題は残る。  
 対処については、[ここ](https://wiki.archlinux.org/title/Internet_sharing#Enable_NAT)とか[ここ](https://wiki.archlinux.org/title/Ppp#Masquerading_seems_to_be_working_fine_but_some_sites_do_not_work)に書いてあるは流石Arch Wiki。自分も読んだはずなのに、後で困ったら思い出すだろうとか思って設定しなかった。もちろん思い出さなかった。
 
 ### その他
@@ -172,10 +172,10 @@ ListenAddress fe80::xxxx:xxxx:xxxx:xxxx%wlan0
 v6で`ListenAddress fe80::xxxx:xxxx:xxxx:xxxx`と書いたらBindに失敗した。ググったところリンクローカルを使う時は必ずインターフェースを指定する必要があった。勉強になりました。
 
 ### やり残し
-systemd-resolvedが動いているがよくわからない
-iptablesのstateを雰囲気で使っている
-TrafficをMonitorする
-v6対応する。IPoEとv4 over v6も設定する
-systemd-networkdがDHCPv6でDNSサーバー設定できない気がする
-pppのkernel moduleをみる
-UnitファイルのWants,After,Require
+systemd-resolvedが動いているがよくわからない  
+iptablesのstateを雰囲気で使っている  
+TrafficをMonitorする  
+v6対応する。IPoEとv4 over v6も設定する  
+systemd-networkdがDHCPv6でDNSサーバー設定できない気がする  
+pppのkernel moduleをみる  
+UnitファイルのWants,After,Require  
