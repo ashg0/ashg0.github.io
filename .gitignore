@@ -4,3 +4,4 @@ _site
 .jekyll-metadata
 vendor
 serv.sh
+docker_serv.sh
