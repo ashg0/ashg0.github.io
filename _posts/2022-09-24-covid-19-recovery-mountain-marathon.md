@@ -10,7 +10,7 @@ After all, I have been infected with COVID-19. I guess the infection route was a
 - 8/30(Tue): Slight fever
 - 8/31(Wed): 38.0C at night
 - 9/1(Thu): 38.0C in the morning. I used sick leave for work.
-- 9/2(Fri): Almost recovered. I ate a pear sent by my parents, but it was not as sweeter as I thought. It might have been a mild taste disorder.
+- 9/2(Fri): Almost recovered. I ate a pear sent by my parents, but it was not as sweet as I thought. It might have been a mild taste disorder.
 - ~9/8(Thu): Self-quarantine.
 
 I used SEIYU Net Supermarket while self-quarantine. If we live alone, we have to rely on delivery. But this operation also relies on trust that people will behave well.  
@@ -27,4 +27,4 @@ Image below links to YAMAP
 
 I didn't feel any degradation in my cardiopulmonary and endurance at that time. I was relieved on this point because I had heard that not a few people have long-COVID symptoms.
 Regarding climbing, I wondered if runners of trail running can run even uphill because I barely did that. On the way downhill, I could go with the tempo to just put my leg on the ground.  
-Some people say that we can organize our thinking while walking alone apart from noisy/annoying places both physically and mentally. However, I don't have too many things to think about so far. Of course, we need to train ourselves to state something and not be able to acquire it naturally. So that I have been trying this blog though.
+Some people say that we can organize our thinking while walking alone apart from distractions both physically and mentally. However, I don't have too many things to think about so far. Of course, we need to train ourselves to state something and not be able to acquire it naturally. So that I have been trying this blog though.
